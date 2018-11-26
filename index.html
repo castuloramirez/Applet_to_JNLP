@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: http: data: 'unsafe-inline'; ">
+<meta http-equiv="Access-Control-Allow-Origin" content="data:">
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Applet to JNLP</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+    </head>
+    <body>
+        <div id="top">
+            <p>Most modern browsers no longer allow JAVA applets.</p>
+            <p>This site creates a JNLP files to run Applets with "Java Web Start" (javaws).</p>
+            <p>To bypass the browsers cross origin policy some cors-anywhere.herokuapp.com is used</p>
+            <label>
+                <input type="url" id="url" placeholder="Applet URL" value="">
+            </label>
+            <label>
+                <button id="get">Get JNLP</button>
+            </label>
+        </div>
+        <div id="bottom">
+            <iframe id="output" style="visibility:hidden"></iframe>
+        </div>
+
+        <script>
+         function doCORSRequest(url, printResult) {
+             var xhr = new XMLHttpRequest();
+             xhr.open('GET', url, true);
+             xhr.onload = function () {
+                 printResult("data:text/html;base64," + btoa(xhr.response+
+                                                             "<scr"+"ipt>"+
+                                                             "window.addEventListener('message', function(e){e.source.postMessage('{"+
+                                                             "\"title\":\"'+document.title+'\","+
+                                                             "\"vendor\":\"'+window.location.hostname+'\","+
+                                                             "\"jar\":\"'+document.getElementsByTagName('applet')[0].attributes.archive.value+'\","+
+                                                             "\"name\":\"'+document.title+'\","+
+                                                             "\"main_class\":\"'+document.getElementsByTagName('applet')[0].attributes.code.value+'\","+
+                                                             "\"width\":\"'+document.getElementsByTagName('applet')[0].attributes.width.value+'\","+
+                                                             "\"height\":\"'+document.getElementsByTagName('applet')[0].attributes.height.value+'\""+
+                                                             "}', e.origin);}, false);"+
+                                                             "</scr"+"ipt>"));
+             };
+             xhr.send(null);
+         }
+         
+         // Bind event
+         (function() {
+             var urlField = document.getElementById('url');
+             var outputField = document.getElementById('output');
+             outputField.onload = function() {
+                 window.setTimeout(function(){outputField.contentWindow.postMessage("","*");},100);
+             }
+             document.getElementById('get').onclick = function(e) {
+                 e.preventDefault();
+                 doCORSRequest(urlField.value,
+                               function printResult(result) {
+                                   outputField.src = result;
+                               });
+             };
+             window.addEventListener('message', function(e){
+                 obj = JSON.parse(e.data);
+                 obj.vendor=(new URL(urlField.value)).hostname;
+                 obj.jar=(new URL(obj.jar, urlField.value)).href;
+                 console.log(obj);
+                 a = document.createElement("a");
+                 a.href="data:application/octet-stream;base64,"+btoa(
+                 '<?xml version="1.0" encoding="UTF-8"?>\n'+
+                 '<jnlp spec="1.0+" codebase="" href="">\n'+
+                 '  <information>\n'+
+                 '    <title>'+obj.title+'</title>\n'+
+                 '    <vendor>'+obj.vendor+'</vendor>\n'+
+                 '  </information>\n'+
+                 '  <resources>\n'+
+                 '    <jar href="'+obj.jar+'" main="true" />\n'+
+                 '  </resources>\n'+
+                 '  <applet-desc name="'+obj.name+'" main-class="'+obj.main_class+'" width="'+obj.width+'" height="'+obj.height+'">\n'+
+                 '  </applet-desc>\n'+
+                 '</jnlp>\n');
+                 a.download=obj.title+".jnlp";
+                 document.body.appendChild(a);
+                 a.click();
+                 document.body.removeChild(a);
+                 console.log(obj);
+             },false);
+
+             var cors_api_host = 'cors-anywhere.herokuapp.com';
+             var cors_api_url = 'https://' + cors_api_host + '/';
+             var slice = [].slice;
+             var origin = window.location.protocol + '//' + window.location.host;
+             var open = XMLHttpRequest.prototype.open;
+             XMLHttpRequest.prototype.open = function() {
+                 var args = slice.call(arguments);
+                 var targetOrigin = /^https?:\/\/([^\/]+)/i.exec(args[1]);
+                 if (targetOrigin && targetOrigin[0].toLowerCase() !== origin &&
+                     targetOrigin[1] !== cors_api_host) {
+                     args[1] = cors_api_url + args[1];
+                 }
+                 return open.apply(this, args);
+             };
+         })();
+
+        </script>
+    </body>
+</html>
