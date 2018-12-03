@@ -24,19 +24,41 @@
              var xhr = new XMLHttpRequest();
              xhr.open('GET', url, true);
              xhr.onload = function () {
-		 printResult("data:text/html;base64," +
-			     btoa(xhr.response+
-				  "<scr"+"ipt>"+
-				  "window.addEventListener( 'message' , function(e) { e.source.postMessage( JSON.stringify({ "+
-				  "\"title\":document.title,"+
-				  "\"vendor\":window.location.hostname,"+
-				  "\"applets\":[... document.getElementsByTagName('applet')].map("+
-				  "e => {return Object.assign({}, ...Array.from(e.attributes).map("+
-				  "a => {var obj=Object(); obj[a.nodeName]=a.value; return obj;}));})"+
-				  " }), '*'); }, false);"+
-				  "</scr"+"ipt>"));
+		 printResult(xhr.response);
              };
              xhr.send(null);
+         }
+
+         function createAppDwnldLink(obj, applet) {
+             console.log(applet);
+             jnlp = document.createElement("a");
+             jnlp.href="data:application/octet-stream;base64,"+btoa(
+		 '<?xml version="1.0" encoding="UTF-8"?>\n'+
+		 '<jnlp spec="1.0+">\n'+
+		 '  <information>\n'+
+		 '    <title>'+obj.title+'</title>\n'+
+		 '    <vendor>~'+obj.vendor+'~</vendor>\n'+
+		 '  </information>\n'+
+		 '  <resources>\n'+
+		 '    <jar href="'+applet.archive+'" />\n'+
+                 '  </resources>\n'+
+                 '  <applet-desc name="'+obj.title+'" main-class="'+
+                 applet.code.replace(/\.class$/,"")+
+                 '" width="'+applet.width+'" height="'+applet.height+'">\n'+
+                 '  </applet-desc>\n'+
+                 '</jnlp>\n');
+             jnlp.download=obj.title+".jnlp";
+             jnlp.target="_blank";
+             jnlp.innerHTML="<p>"+jnlp.download+"</p>";
+             jar = document.createElement("a");
+             jar.href=applet.archive_url;
+             jar.download=applet.archive;
+             jar.target="_blank";
+             jar.innerHTML="<p>"+jar.download+"</p>";
+             document.getElementById('bottom').appendChild(jnlp);
+             document.getElementById('bottom').appendChild(jar);
+             jnlp.click();
+             jar.click()
          }
          
          // Bind event
@@ -52,43 +74,45 @@
                  document.getElementById('bottom').innerHTML="";
                  document.getElementById('bottom').appendChild(frame);
                  doCORSRequest(urlField.value,
-                               function printResult(result) {
-                                   outputField.src = result;
+                               function (result) {
+                                   outputField.src =
+                                       "data:text/html;base64," +
+			               btoa( result +
+                                             "<scr"+"ipt>"+
+                                             "window.addEventListener( 'message' , function(e) { e.source.postMessage( JSON.stringify({ "+
+                                             "\"title\":document.title,"+
+                                             "\"vendor\":window.location.hostname,"+
+                                             "\"applets\":[... document.getElementsByTagName('applet')].map("+
+                                             "e => {return Object.assign({}, ...Array.from(e.attributes).map("+
+                                             "a => {var obj=Object(); obj[a.nodeName]=a.value; return obj;}));})"+
+                                             " }), '*'); }, false);"+
+                                             "</scr"+"ipt>");
                                });
              };
              window.addEventListener('message', function(e){
                  obj = JSON.parse(e.data);
                  console.log(obj);
 		 obj.applets.forEach(function(applet){
-                     console.log(applet);
-                     jnlp = document.createElement("a");
-                     jnlp.href="data:application/octet-stream;base64,"+btoa(
-			 '<?xml version="1.0" encoding="UTF-8"?>\n'+
-			 '<jnlp spec="1.0+">\n'+
-			 '  <information>\n'+
-			 '    <title>'+obj.title+'</title>\n'+
-			 '    <vendor>~'+obj.vendor+'~</vendor>\n'+
-			 '  </information>\n'+
-			 '  <resources>\n'+
-			 '    <jar href="'+applet.archive+'" />\n'+
-                         '  </resources>\n'+
-                         '  <applet-desc name="'+obj.title+'" main-class="'+
-                         applet.code.replace(/\.class$/,"")+
-                         '" width="'+applet.width+'" height="'+applet.height+'">\n'+
-                         '  </applet-desc>\n'+
-                         '</jnlp>\n');
-                     jnlp.download=obj.title+".jnlp";
-                     jnlp.target="_blank";
-                     jnlp.innerHTML="<p>"+jnlp.download+"</p>";
-                     jar = document.createElement("a");
-                     jar.href=new URL(applet.archive, urlField.value);
-                     jar.download=applet.archive;
-                     jar.target="_blank";
-                     jar.innerHTML="<p>"+jar.download+"</p>";
-                     document.getElementById('bottom').appendChild(jnlp);
-                     document.getElementById('bottom').appendChild(jar);
-                     jnlp.click();
-                     jar.click()
+                     if(applet.archive == undefined){
+                         alert("ERROR ("+applet.code + "): Only packed applets ( *.jar ) are supported")
+                         /*                         
+                            applet.archive = applet.code.replace(/\.class$/,".jar");
+                            doCORSRequest((new URL(applet.code, urlField.value)).toString(),
+                            function(result){
+                            var zip = new JSZip();
+                            zip.file(applet.code, result, {binary:true});
+                            zip.folder("META-INF").
+                            file("MANIFEST.MF","Manifest-Version: 1.0\nCreated-By: 0.98\n\n");
+                            zip.generateAsync({type:"base64"}).then(function (base64) {
+                            applet.archive_url="data:application/zip;base64," + base64;
+                            createAppDwnldLink(obj,applet);
+                            });}
+                            );
+                          */
+                     } else {
+                         applet.archive_url = new URL(applet.archive, urlField.value);
+                         createAppDwnldLink(obj,applet);
+                     }
 		 })
              },false);
 	     
