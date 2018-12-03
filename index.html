@@ -16,7 +16,7 @@
             </label>
         </div>
         <div id="bottom">
-            <iframe id="output" style="visibility:hidden"></iframe>
+            <iframe id="output" style="visibility:collapse;height:1px;"></iframe>
         </div>
 
         <script>
@@ -48,6 +48,9 @@
              }
              document.getElementById('get').onclick = function(e) {
                  e.preventDefault();
+                 frame=document.getElementById('bottom').children[0];
+                 document.getElementById('bottom').innerHTML="";
+                 document.getElementById('bottom').appendChild(frame);
                  doCORSRequest(urlField.value,
                                function printResult(result) {
                                    outputField.src = result;
@@ -57,33 +60,35 @@
                  obj = JSON.parse(e.data);
                  console.log(obj);
 		 obj.applets.forEach(function(applet){
+                     console.log(applet);
                      jnlp = document.createElement("a");
                      jnlp.href="data:application/octet-stream;base64,"+btoa(
 			 '<?xml version="1.0" encoding="UTF-8"?>\n'+
-			 '<jnlp spec="1.0+" codebase="" href="">\n'+
+			 '<jnlp spec="1.0+">\n'+
 			 '  <information>\n'+
 			 '    <title>'+obj.title+'</title>\n'+
-			 '    <vendor>'+obj.vendor+'</vendor>\n'+
+			 '    <vendor>~'+obj.vendor+'~</vendor>\n'+
 			 '  </information>\n'+
-			 '  <security>\n'+
-			 '  <all-permissions />\n'+
-			 '  </security>\n'+
 			 '  <resources>\n'+
-			 '    <jar href="'+applet.archive+'" main="true" />\n'+
-			 '  </resources>\n'+
-			 '  <applet-desc name="'+obj.title+'" main-class="'+applet.code+'" width="'+applet.width+'" height="'+applet.height+'">\n'+
-			 '  </applet-desc>\n'+
-			 '</jnlp>\n');
+			 '    <jar href="'+applet.archive+'" />\n'+
+                         '  </resources>\n'+
+                         '  <applet-desc name="'+obj.title+'" main-class="'+
+                         applet.code.replace(/\.class$/,"")+
+                         '" width="'+applet.width+'" height="'+applet.height+'">\n'+
+                         '  </applet-desc>\n'+
+                         '</jnlp>\n');
                      jnlp.download=obj.title+".jnlp";
-		     jnlp.innerHTML=jnlp.download;
-		     //                 a.click();
-		     //                 document.body.removeChild(a);
-		     jar = document.createElement("a");
-		     jar.href=new URL(applet.archive, urlField.value);
-		     jar.download=applet.archive;
-		     jar.innerHTML=jar.download;
-                     document.body.appendChild(jnlp);
-                     document.body.appendChild(jar);
+                     jnlp.target="_blank";
+                     jnlp.innerHTML="<p>"+jnlp.download+"</p>";
+                     jar = document.createElement("a");
+                     jar.href=new URL(applet.archive, urlField.value);
+                     jar.download=applet.archive;
+                     jar.target="_blank";
+                     jar.innerHTML="<p>"+jar.download+"</p>";
+                     document.getElementById('bottom').appendChild(jnlp);
+                     document.getElementById('bottom').appendChild(jar);
+                     jnlp.click();
+                     jar.click()
 		 })
              },false);
 	     
